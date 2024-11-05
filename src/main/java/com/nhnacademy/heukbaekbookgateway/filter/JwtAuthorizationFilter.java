@@ -48,6 +48,10 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Member access only");
             }
 
+            exchange.mutate().request(builder ->
+                    builder.header("X-USER-ID", String.valueOf(jwtUtil.getIdFromRefreshToken(token)))
+            );
+
             return chain.filter(exchange);
         };
     }
