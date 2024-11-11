@@ -27,9 +27,10 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().toString();
+            String method = exchange.getRequest().getMethod().toString();
 
             if (config.getExcludedPaths() != null &&
-                    config.getExcludedPaths().stream().anyMatch(path::startsWith)) {
+                    config.getExcludedPaths().stream().anyMatch(p -> matches(p, path, method))) {
                 return chain.filter(exchange);
             }
 
@@ -40,13 +41,11 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
 
             String userRole = jwtUtil.getRoleFromToken(token);
 
-            if (config.getAdminPaths().stream().anyMatch(path::startsWith) && !userRole.equals(ROLE_ADMIN)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access only");
-            }
+            // Admin paths
+            checkAccess(config.getAdminPaths(), ROLE_ADMIN, userRole, path, method);
 
-            if (config.getMemberPaths().stream().anyMatch(path::startsWith) && !userRole.equals(ROLE_MEMBER)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Member access only");
-            }
+            // Member paths
+            checkAccess(config.getMemberPaths(), ROLE_MEMBER, userRole, path, method);
 
             exchange.mutate().request(builder ->
                     builder.header("X-USER-ID", String.valueOf(jwtUtil.getIdFromRefreshToken(token)))
@@ -56,11 +55,45 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
         };
     }
 
+    private boolean matches(PathMethodConfig configPath, String requestPath, String requestMethod) {
+        if (configPath == null || requestPath == null || requestMethod == null) {
+            return false;
+        }
+        boolean pathMatches = requestPath.startsWith(configPath.getPath());
+        boolean methodMatches = configPath.getMethods() == null ||
+                configPath.getMethods().stream().anyMatch(m -> m.equalsIgnoreCase(requestMethod));
+        return pathMatches && methodMatches;
+    }
+
+    private void verifyRole(String userRole, String requiredRole) {
+        if (!userRole.equals(requiredRole)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, requiredRole + " access only");
+        }
+    }
+
+    private void checkAccess(List<PathMethodConfig> paths, String requiredRole, String userRole, String path, String method) {
+        if (paths != null) {
+            for (PathMethodConfig p : paths) {
+                if (matches(p, path, method)) {
+                    verifyRole(userRole, requiredRole);
+                    break;
+                }
+            }
+        }
+    }
+
     @Setter
     @Getter
     public static class Config {
-        private List<String> excludedPaths;
-        private List<String> adminPaths;
-        private List<String> memberPaths;
+        private List<PathMethodConfig> excludedPaths;
+        private List<PathMethodConfig> adminPaths;
+        private List<PathMethodConfig> memberPaths;
+    }
+
+    @Setter
+    @Getter
+    public static class PathMethodConfig {
+        private String path;
+        private List<String> methods;
     }
 }
