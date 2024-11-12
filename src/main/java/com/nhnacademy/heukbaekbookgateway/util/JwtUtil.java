@@ -15,9 +15,7 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    private static final String ROLE = "role";
     private static final String TOKEN_PREFIX = "Bearer ";
-    private static final String SUB = "sub";
 
     private final SecretKey secretKey;
 
@@ -48,31 +46,11 @@ public class JwtUtil {
                 .before(new Date());
     }
 
-    public String getRoleFromToken(String token) {
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .get(ROLE, String.class);
-    }
-
     public String resolveToken(ServerHttpRequest request) {
         String bearerToken = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (bearerToken != null && bearerToken.startsWith(TOKEN_PREFIX)) {
             return bearerToken.substring(TOKEN_PREFIX.length());
         }
         return null;
-    }
-
-    public Long getIdFromRefreshToken(String token) {
-        String customerIdStr = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .get(SUB, String.class);
-
-        return Long.valueOf(customerIdStr);
     }
 }

@@ -6,6 +6,7 @@ import lombok.Setter;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -15,6 +16,7 @@ import java.util.List;
 public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuthorizationFilter.Config> {
     private static final String ROLE_ADMIN = "ROLE_ADMIN";
     private static final String ROLE_MEMBER = "ROLE_MEMBER";
+    private static final String X_USER_ROLE = "X-USER-ROLE";
 
     private final JwtUtil jwtUtil;
 
@@ -39,7 +41,7 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "JWT Token is missing or invalid");
             }
 
-            String userRole = jwtUtil.getRoleFromToken(token);
+            String userRole = getValueFromRequest(exchange.getRequest(), X_USER_ROLE);
 
             // Admin paths
             checkAccess(config.getAdminPaths(), ROLE_ADMIN, userRole, path, method);
@@ -47,9 +49,6 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
             // Member paths
             checkAccess(config.getMemberPaths(), ROLE_MEMBER, userRole, path, method);
 
-            exchange.mutate().request(builder ->
-                    builder.header("X-USER-ID", String.valueOf(jwtUtil.getIdFromRefreshToken(token)))
-            );
 
             return chain.filter(exchange);
         };
@@ -80,6 +79,10 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
                 }
             }
         }
+    }
+
+    private String getValueFromRequest(ServerHttpRequest request, String name) {
+        return request.getHeaders().getFirst(name);
     }
 
     @Setter
