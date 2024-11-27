@@ -3,6 +3,7 @@ package com.nhnacademy.heukbaekbookgateway.filter;
 import com.nhnacademy.heukbaekbookgateway.util.JwtUtil;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @Component
+@Slf4j
 public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuthorizationFilter.Config> {
     private static final String ROLE_ADMIN = "ROLE_ADMIN";
     private static final String ROLE_MEMBER = "ROLE_MEMBER";
@@ -30,6 +32,7 @@ public class JwtAuthorizationFilter extends AbstractGatewayFilterFactory<JwtAuth
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().toString();
             String method = exchange.getRequest().getMethod().toString();
+            log.info("{} {} : {}", method, path, getValueFromRequest(exchange.getRequest(), "X-USER-ID"));
 
             if (config.getExcludedPaths() != null &&
                     config.getExcludedPaths().stream().anyMatch(p -> matches(p, path, method))) {
